@@ -1,0 +1,59 @@
+#!/bin/sh                                                                                               
+
+MACADDR=''
+
+showHelp() {
+    cat << EOF                                                                                          
+Usage: ${0##*/} [-e] [-d] [-c COLOUR] [-w BRIGHTNESS]                                                   
+Controle the light bulb.                                                                                
+                                                                                                        
+    -h             Shows this message                                                                   
+    -e             Turns the bulb on                                                                    
+    -d             Turns the bulb off                                                                   
+    -c COLOUR      Sets the colour of the bulb in hex e.g. ff0000 for red                               
+    -w BRIGHTNESS  Sets the bulb to warm mode and the sets the brightness                               
+    -m MACADDRESS  MAC address of the bulb
+
+EOF                                                                                                     
+}
+
+sendCommand () {
+    hcitool lecc $MACADDR > /dev/null
+    gatttool -b $MACADDR --char-write-req -a 0x0043 -n $1
+}
+
+while getopts "edw:c:m:" opt; do
+    case $opt in
+        e)
+            echo "enabling"
+            sendCommand "cc2333"
+            ;;
+        d)
+            echo "disabling"
+            sendCommand "cc2433"
+            ;;
+        w)
+            echo "warming: $OPTARG"
+            HEX=$(echo "obase=16; $OPTARG" | bc | tr '[:upper:]' '[:lower:]')
+            sendCommand "56000000${HEX}0faa"
+            ;;
+        c)
+            echo "coloring: $OPTARG"
+            sendCommand "56${OPTARG}00f0aa"
+            ;;
+        h)
+            showHelp
+            exit 0
+            ;;
+        \?)
+            showHelp
+            exit 1
+            ;;
+        :)
+            echo "Option $OPTARG requires an argument."
+            exit 1
+            ;;
+    esac
+done
+
+showHelp
